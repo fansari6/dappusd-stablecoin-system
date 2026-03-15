@@ -1,5 +1,11 @@
 # DappUSD Stablecoin System
 
+![Node](https://img.shields.io/badge/Node.js-Backend-green)
+![React](https://img.shields.io/badge/React-Frontend-blue)
+![Ethereum](https://img.shields.io/badge/Ethereum-SmartContract-purple)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
 Full-stack blockchain infrastructure project implementing an ERC-20 stablecoin, backend transaction indexing, and a monitoring dashboard.
 
 ## Architecture
