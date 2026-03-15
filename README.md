@@ -60,3 +60,45 @@ React + Vite dashboard showing:
 
 ### System
 
+contracts/
+DappUSD.sol
+
+api/
+server.js
+contract.js
+db.js
+indexer.js
+
+frontend/
+React dashboard
+
+scripts/
+deploy.js
+
+test/
+contract tests
+
+
+## How It Works
+
+1. Users interact with the React dashboard.
+2. The frontend calls the Express API.
+3. The API interacts with the Ethereum smart contract using ethers.js.
+4. Transfer events are automatically indexed into PostgreSQL.
+5. The dashboard displays indexed blockchain data.
+
+## Next Steps
+
+Planned improvements:
+
+- Deploy smart contract to Sepolia testnet
+- MetaMask wallet login
+- UI transaction sending
+- Docker containerization
+- Cloud deployment
+- Vercel frontend deployment
+
+## Author
+
+Faruk Ansari  
+Dapp Architects
