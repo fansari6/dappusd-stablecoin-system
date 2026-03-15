@@ -1,3 +1,0 @@
-Designed and implemented an Ethereum-based stablecoin prototype using Solidity and Hardhat with role-based access control, pausability, and secure mint/burn workflows aligned with regulated digital asset operational patterns.
-
-The token uses OpenZeppelin AccessControl with role-based operational controls allowing separation of minting, burning, and pause operations across different operational services.
