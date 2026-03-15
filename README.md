@@ -107,26 +107,17 @@ Dapp Architects
 
 ## System Architecture
 
-```
-┌─────────────────────────┐
-│ React Dashboard (Vite)  │
-└──────────────┬──────────┘
-               │ REST API
-               ▼
-┌─────────────────────────┐
-│ Node.js / Express API   │
-│                         │
-│ • Token APIs            │
-│ • Wallet APIs           │
-│ • Transaction APIs      │
-│ • Health Monitoring     │
-└──────────────┬──────────┘
-               │
-       ┌───────┴────────┐
-       ▼                ▼
-┌─────────────┐   ┌─────────────┐
-│ PostgreSQL  │   │ Ethereum    │
-│ Transactions│   │ ERC20 Token │
-│ Index       │   │ DappUSD     │
-└─────────────┘   └─────────────┘
+## System Architecture
+
+```mermaid
+flowchart TD
+
+A[React Dashboard - Vite]
+B[Node.js / Express API]
+C[PostgreSQL Transaction Index]
+D[Ethereum ERC20 Contract - DappUSD]
+
+A -->|REST API| B
+B --> C
+B --> D
 ```
