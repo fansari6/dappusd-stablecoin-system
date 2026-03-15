@@ -62,6 +62,26 @@ React + Vite dashboard showing:
 - Indexed transaction count
 - Transaction history table
 
+## API Reference
+
+### Health & Monitoring
+- `GET /api/v1/health` — API, database, and blockchain health
+- `GET /api/v1/total-supply` — current token supply
+- `GET /api/v1/transaction-count` — number of indexed transactions
+
+### Token Data
+- `GET /api/v1/token-info` — token name, symbol, and supply
+- `GET /api/v1/balance/:address` — wallet token balance
+
+### Write Operations
+- `POST /api/v1/mint` — mint tokens
+- `POST /api/v1/transfer` — transfer tokens
+- `POST /api/v1/burn` — burn tokens
+
+### Indexed Transactions
+- `GET /api/v1/transactions` — all indexed transactions
+- `GET /api/v1/transactions/:address` — transactions for a wallet
+  
 ## API Endpoints
 
 ### System
