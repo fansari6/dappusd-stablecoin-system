@@ -10,6 +10,19 @@ function App() {
   const [transactions, setTransactions] = useState([]);
   const [walletAddress, setWalletAddress] = useState('');
   const [walletBalance, setWalletBalance] = useState(null);
+  const [connectedAccount, setConnectedAccount] = useState('');
+  const [connectedChainId, setConnectedChainId] = useState('');
+  const [connectedBalance, setConnectedBalance] = useState(null);
+  const [walletError, setWalletError] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferStatus, setTransferStatus] = useState('');
+  const [mintTo, setMintTo] = useState('');
+  const [mintAmount, setMintAmount] = useState('');
+  const [mintStatus, setMintStatus] = useState('');
+  const [burnFrom, setBurnFrom] = useState('');
+  const [burnAmount, setBurnAmount] = useState('');
+  const [burnStatus, setBurnStatus] = useState('');
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -55,10 +68,174 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!window.ethereum) return;
+
+    const handleAccountsChanged = (accounts) => {
+      const account = accounts[0] || '';
+      setConnectedAccount(account);
+
+      if (account) {
+        fetch(`http://localhost:3001/api/v1/balance/${account}`)
+          .then((res) => res.json())
+          .then((data) => setConnectedBalance(data.balance))
+          .catch((err) => {
+            console.error('Accounts changed balance fetch error:', err);
+            setConnectedBalance(null);
+          });
+      } else {
+        setConnectedBalance(null);
+      }
+    };
+
+    const handleChainChanged = (chainId) => {
+      setConnectedChainId(chainId);
+    };
+
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+    window.ethereum.on('chainChanged', handleChainChanged);
+
+    return () => {
+      window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      window.ethereum.removeListener('chainChanged', handleChainChanged);
+    };
+  }, []);
+
   const fetchBalance = () => {
     fetch(`http://localhost:3001/api/v1/balance/${walletAddress}`)
       .then((res) => res.json())
       .then((data) => setWalletBalance(data));
+  };
+
+  const formatChainName = (chainId) => {
+    if (chainId === '0x7a69') return 'Localhost Hardhat';
+    if (chainId === '0xaa36a7') return 'Sepolia';
+    return chainId || 'Not connected';
+  };
+
+  const connectWallet = async () => {
+    try {
+      setWalletError('');
+
+      if (!window.ethereum) {
+        setWalletError('MetaMask is not installed');
+        return;
+      }
+
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      const chainId = await window.ethereum.request({
+        method: 'eth_chainId',
+      });
+
+      const account = accounts[0] || '';
+
+      setConnectedAccount(account);
+      setConnectedChainId(chainId);
+
+      if (account) {
+        fetch(`http://localhost:3001/api/v1/balance/${account}`)
+          .then((res) => res.json())
+          .then((data) => setConnectedBalance(data.balance))
+          .catch((err) => {
+            console.error('Connected wallet balance fetch error:', err);
+            setConnectedBalance(null);
+          });
+      }
+    } catch (error) {
+      console.error('Wallet connect error:', error);
+      setWalletError(error.message || 'Failed to connect wallet');
+    }
+  };
+
+  const handleTransfer = async () => {
+    try {
+      setTransferStatus('Sending...');
+
+      const res = await fetch('http://localhost:3001/api/v1/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: transferTo,
+          amount: transferAmount,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTransferStatus(data.error || 'Transfer failed');
+        return;
+      }
+
+      setTransferStatus(`Success: ${data.transactionHash}`);
+      setTransferTo('');
+      setTransferAmount('');
+      loadDashboardData();
+    } catch (error) {
+      console.error('Transfer error:', error);
+      setTransferStatus('Transfer failed');
+    }
+  };
+
+  const handleMint = async () => {
+    try {
+      setMintStatus('Minting...');
+
+      const res = await fetch('http://localhost:3001/api/v1/mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: mintTo,
+          amount: mintAmount,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMintStatus(data.error || 'Mint failed');
+        return;
+      }
+
+      setMintStatus(`Success: ${data.transactionHash}`);
+      setMintTo('');
+      setMintAmount('');
+    } catch (error) {
+      console.error('Mint error:', error);
+      setMintStatus('Mint failed');
+    }
+  };
+
+  const handleBurn = async () => {
+    try {
+      setBurnStatus('Burning...');
+
+      const res = await fetch('http://localhost:3001/api/v1/burn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: burnFrom,
+          amount: burnAmount,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setBurnStatus(data.error || 'Burn failed');
+        return;
+      }
+
+      setBurnStatus(`Success: ${data.transactionHash}`);
+      setBurnFrom('');
+      setBurnAmount('');
+    } catch (error) {
+      console.error('Burn error:', error);
+      setBurnStatus('Burn failed');
+    }
   };
 
   const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -87,11 +264,6 @@ function App() {
 
   return (
     <div className="app">
-      {/* <div className="header">
-        <h1 className="title">DappUSD Stablecoin Dashboard</h1>
-        <p className="subtitle">Blockchain monitoring and token analytics</p>
-      </div> */}
-
       <div
         className="header"
         style={{
@@ -113,6 +285,153 @@ function App() {
             borderRadius: '12px',
           }}
         />
+      </div>
+
+      <div className="card">
+        <h2>Connected Wallet</h2>
+
+        <div className="lookup-row">
+          <button onClick={connectWallet}>Connect MetaMask</button>
+        </div>
+
+        {walletError && (
+          <div
+            className="label"
+            style={{ color: '#ff6b6b', marginTop: '10px' }}
+          >
+            {walletError}
+          </div>
+        )}
+
+        <div className="grid" style={{ marginTop: '16px' }}>
+          <div>
+            <div className="label">Address</div>
+            <div className="mono">
+              {connectedAccount
+                ? `${connectedAccount.slice(0, 6)}...${connectedAccount.slice(
+                    -4,
+                  )}`
+                : 'Not connected'}
+            </div>
+          </div>
+
+          <div>
+            <div className="label">Network</div>
+            <div>{formatChainName(connectedChainId)}</div>
+          </div>
+
+          <div>
+            <div className="label">DUSD Balance</div>
+            <div>{connectedBalance ?? 'Not connected'}</div>
+          </div>
+
+          <div>
+            <div className="label">Mode</div>
+            <div>Backend-controlled transactions</div>
+          </div>
+        </div>
+
+        <div className="card">
+          <h2>Mint DUSD</h2>
+
+          <div className="lookup-row" style={{ marginBottom: '12px' }}>
+            <input
+              type="text"
+              placeholder="Recipient address"
+              value={mintTo}
+              onChange={(e) => setMintTo(e.target.value)}
+            />
+          </div>
+
+          <div className="lookup-row">
+            <input
+              type="text"
+              placeholder="Amount"
+              value={mintAmount}
+              onChange={(e) => setMintAmount(e.target.value)}
+            />
+
+            {/* <button onClick={handleMint}>Mint</button> */}
+            <button onClick={handleMint} disabled={mintStatus === 'Minting...'}>
+              {mintStatus === 'Minting...' ? 'Minting...' : 'Mint'}
+            </button>
+          </div>
+
+          {mintStatus && (
+            <div className="json-box" style={{ marginTop: '12px' }}>
+              <pre>{mintStatus}</pre>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Transfer DUSD</h2>
+
+          <div className="lookup-row" style={{ marginBottom: '12px' }}>
+            <input
+              type="text"
+              placeholder="Recipient address"
+              value={transferTo}
+              onChange={(e) => setTransferTo(e.target.value)}
+            />
+          </div>
+
+          <div className="lookup-row">
+            <input
+              type="text"
+              placeholder="Amount"
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+            />
+
+            {/* <button onClick={handleTransfer}>Send</button> */}
+            <button
+              onClick={handleTransfer}
+              disabled={transferStatus === 'Sending...'}
+            >
+              {transferStatus === 'Sending...' ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+
+          {transferStatus && (
+            <div className="json-box" style={{ marginTop: '12px' }}>
+              <pre>{transferStatus}</pre>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Burn DUSD</h2>
+
+          <div className="lookup-row" style={{ marginBottom: '12px' }}>
+            <input
+              type="text"
+              placeholder="Source address"
+              value={burnFrom}
+              onChange={(e) => setBurnFrom(e.target.value)}
+            />
+          </div>
+
+          <div className="lookup-row">
+            <input
+              type="text"
+              placeholder="Amount"
+              value={burnAmount}
+              onChange={(e) => setBurnAmount(e.target.value)}
+            />
+
+            {/* <button onClick={handleBurn}>Burn</button> */}
+            <button onClick={handleBurn} disabled={burnStatus === 'Burning...'}>
+              {burnStatus === 'Burning...' ? 'Burning...' : 'Burn'}
+            </button>
+          </div>
+
+          {burnStatus && (
+            <div className="json-box" style={{ marginTop: '12px' }}>
+              <pre>{burnStatus}</pre>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid">
@@ -184,7 +503,16 @@ function App() {
         </div>
 
         {walletBalance && (
-          <div className="json-box">
+          // <div className="json-box">
+          <div
+            className="json-box"
+            style={{
+              backgroundColor: transferStatus.includes('Success')
+                ? '#e6fffa'
+                : '#ffe6e6',
+              color: transferStatus.includes('Success') ? '#065f46' : '#7f1d1d',
+            }}
+          >
             <pre>{JSON.stringify(walletBalance, null, 2)}</pre>
           </div>
         )}
