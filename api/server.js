@@ -1,19 +1,23 @@
 import dotenv from 'dotenv';
 dotenv.config({ quiet: true });
+
 import express from 'express';
 import cors from 'cors';
-import { contract, ethers, wallet, provider } from './contract.js';
-import pool from './db.js';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
+
+import { contract, ethers, wallet, provider } from './contract.js';
+import pool from './db.js';
 import { startIndexer } from './indexer.js';
 
+// Base prefix so all API routes stay consistent
 const API_PREFIX = '/api/v1';
 
+// General limiter for all API requests
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -21,6 +25,7 @@ const apiLimiter = rateLimit({
   },
 });
 
+// Stricter limiter for write/blockchain-changing routes
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -32,16 +37,21 @@ const writeLimiter = rateLimit({
 });
 
 const app = express();
+
+// Security and request-parsing middleware
 app.use(cors());
 app.use(express.json());
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(apiLimiter);
 
+// Simple root route to confirm the API is running
 app.get('/', (req, res) => {
-  res.json({ message: 'DappUSD Payment is running' });
+  console.log('root route hit');
+  res.json({ message: 'DappUSD Payment API is running' });
 });
 
+// Returns basic token metadata from the smart contract
 app.get(`${API_PREFIX}/token-info`, async (req, res) => {
   try {
     const name = await contract.name();
@@ -58,16 +68,13 @@ app.get(`${API_PREFIX}/token-info`, async (req, res) => {
   }
 });
 
-app.get('/balance/:address', async (req, res) => {
+// Returns token balance for a given Ethereum address
+app.get(`${API_PREFIX}/balance/:address`, async (req, res) => {
   try {
     const { address } = req.params;
 
     if (!ethers.isAddress(address)) {
       return res.status(400).json({ error: 'Invalid Ethereum address' });
-    }
-
-    if (!ethers.isAddress(address)) {
-      return res.status(400).json({ error: 'Invalid Ethereum add' });
     }
 
     const balance = await contract.balanceOf(address);
@@ -81,24 +88,32 @@ app.get('/balance/:address', async (req, res) => {
   }
 });
 
-app.post('/mint', writeLimiter, async (req, res) => {
+// Admin mint endpoint
+// Mints new DUSD to a target address using the backend wallet
+app.post(`${API_PREFIX}/mint`, writeLimiter, async (req, res) => {
   try {
     const { to, amount } = req.body;
 
-    if (amount === undefined || amount === null || isNaN(Number(amount))) {
-      return res.status(400).json({ error: 'Amount must be a valid number' });
+    // Validate amount presence and numeric value
+    if (
+      amount === undefined ||
+      amount === null ||
+      isNaN(Number(amount)) ||
+      Number(amount) <= 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'Amount must be a valid number and greater than zero' });
     }
 
+    // Allow up to 18 decimal places
     if (!/^\d+(\.\d{1,18})?$/.test(amount.toString())) {
       return res.status(400).json({
         error: 'Amount supports up to 18 decimal places',
       });
     }
 
-    if (Number(amount) <= 0) {
-      return res.status(400).json({ error: 'Amount must be greater than 0' });
-    }
-
+    // Validate recipient address
     if (!ethers.isAddress(to)) {
       return res.status(400).json({ error: 'Invalid recipient address' });
     }
@@ -109,14 +124,11 @@ app.post('/mint', writeLimiter, async (req, res) => {
         .json({ error: 'Recipient cannot be zero address' });
     }
 
-    if (!amount || Number(amount) <= 0) {
-      return res.status(400).json({ error: 'Amount must be greater than 0' });
-    }
-
     const tx = await contract.mint(
       to,
       ethers.parseUnits(amount.toString(), 18),
     );
+
     const receipt = await tx.wait();
 
     res.json({
@@ -130,36 +142,40 @@ app.post('/mint', writeLimiter, async (req, res) => {
   }
 });
 
+// Transfers DUSD from the backend wallet to another address
+// Important: this sends tokens FROM wallet.address, not from an arbitrary user wallet
 app.post(`${API_PREFIX}/transfer`, writeLimiter, async (req, res) => {
   try {
     const { to, amount } = req.body;
 
-    if (amount === undefined || amount === null || isNaN(Number(amount))) {
-      return res.status(400).json({ error: 'Amount must be a valid number' });
+    // Validate amount
+    if (
+      amount === undefined ||
+      amount === null ||
+      isNaN(Number(amount)) ||
+      Number(amount) <= 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'Amount must be a valid number and greater than zero' });
     }
 
+    // Allow up to 18 decimal places
     if (!/^\d+(\.\d{1,18})?$/.test(amount.toString())) {
       return res.status(400).json({
         error: 'Amount supports up to 18 decimal places',
       });
     }
 
-    if (Number(amount) <= 0) {
-      return res.status(400).json({ error: 'Amount must be greater than 0' });
-    }
-
+    // Validate recipient address
     if (!ethers.isAddress(to)) {
-      return res.status(400).json({ error: 'Invalid receipient address' });
+      return res.status(400).json({ error: 'Invalid recipient address' });
     }
 
     if (to === ethers.ZeroAddress) {
       return res
         .status(400)
         .json({ error: 'Recipient cannot be zero address' });
-    }
-
-    if (!amount || Number(amount) <= 0) {
-      return res.status(400).json({ error: 'Amount must be greater than 0' });
     }
 
     const tx = await contract.transfer(
@@ -181,6 +197,7 @@ app.post(`${API_PREFIX}/transfer`, writeLimiter, async (req, res) => {
   }
 });
 
+// Returns all indexed transactions from PostgreSQL
 app.get(`${API_PREFIX}/transactions`, async (req, res) => {
   try {
     const result = await pool.query(
@@ -194,7 +211,8 @@ app.get(`${API_PREFIX}/transactions`, async (req, res) => {
   }
 });
 
-app.get('/transactions/:address', async (req, res) => {
+// Returns indexed transactions for one specific wallet address
+app.get(`${API_PREFIX}/transactions/:address`, async (req, res) => {
   try {
     const { address } = req.params;
 
@@ -216,11 +234,14 @@ app.get('/transactions/:address', async (req, res) => {
   }
 });
 
+// Health-check endpoint for API, database, and blockchain connectivity
 app.get(`${API_PREFIX}/health`, async (req, res) => {
   try {
+    // Simple DB connectivity test
     await pool.query('SELECT 1');
 
-    const blockNumber = await contract.runner.provider.getBlockNumber();
+    // Get latest chain block to confirm RPC/provider is working
+    const blockNumber = await provider.getBlockNumber();
 
     res.json({
       status: 'ok',
@@ -240,10 +261,13 @@ app.get(`${API_PREFIX}/health`, async (req, res) => {
   }
 });
 
-app.post('/burn', writeLimiter, async (req, res, next) => {
+// Admin burn endpoint
+// Burns tokens from a target address using the backend wallet's BURNER_ROLE
+app.post(`${API_PREFIX}/burn`, writeLimiter, async (req, res, next) => {
   try {
     const { from, amount } = req.body;
 
+    // Validate source address
     if (!ethers.isAddress(from)) {
       return res.status(400).json({ error: 'Invalid Ethereum address' });
     }
@@ -252,31 +276,31 @@ app.post('/burn', writeLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Source cannot be zero address' });
     }
 
-    if (amount === undefined || amount === null || isNaN(Number(amount))) {
-      return res.status(400).json({ error: 'Amount must be a valid number' });
+    // Validate amount
+    if (
+      amount === undefined ||
+      amount === null ||
+      isNaN(Number(amount)) ||
+      Number(amount) <= 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'Amount must be a valid number and greater than zero' });
     }
 
+    // Allow up to 18 decimal places
     if (!/^\d+(\.\d{1,18})?$/.test(amount.toString())) {
       return res.status(400).json({
         error: 'Amount supports up to 18 decimal places',
       });
     }
 
-    if (Number(amount) <= 0) {
-      return res.status(400).json({ error: 'Amount must be greater than 0' });
-    }
-
     const tx = await contract.burn(
       from,
       ethers.parseUnits(amount.toString(), 18),
     );
-    const receipt = await tx.wait();
 
-    await pool.query(
-      `INSERT INTO transactions (tx_hash, from_address, to_address, amount, block_number)
-        VALUES ($1, $2, $3, $4, $5)`,
-      [receipt.hash, from, 'burn', amount, receipt.blockNumber],
-    );
+    const receipt = await tx.wait();
 
     res.json({
       message: 'Tokens burned successfully',
@@ -289,6 +313,7 @@ app.post('/burn', writeLimiter, async (req, res, next) => {
   }
 });
 
+// Returns formatted total token supply
 app.get(`${API_PREFIX}/total-supply`, async (req, res, next) => {
   try {
     const supply = await contract.totalSupply();
@@ -301,6 +326,7 @@ app.get(`${API_PREFIX}/total-supply`, async (req, res, next) => {
   }
 });
 
+// Returns number of indexed transactions stored in PostgreSQL
 app.get(`${API_PREFIX}/transaction-count`, async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -315,6 +341,7 @@ app.get(`${API_PREFIX}/transaction-count`, async (req, res, next) => {
   }
 });
 
+// 404 handler for unknown routes
 app.use((req, res) => {
   res.status(404).json({
     error: 'Route not found',
@@ -322,6 +349,7 @@ app.use((req, res) => {
   });
 });
 
+// Global error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
 
@@ -333,30 +361,20 @@ app.use((err, req, res, next) => {
 
 const port = process.env.PORT || 3001;
 
-app.listen(port, () => {
+// Start server and background indexer
+app.listen(port, async () => {
   console.log(`API running on http://localhost:${port}`);
   console.log('API wallet:', wallet.address);
 
-  startIndexer();
-});
-
-contract.on('Transfer', async (from, to, value, event) => {
   try {
-    const amount = ethers.formatUnits(value, 18);
-
-    await pool.query(
-      `INSERT INTO transactions (tx_hash, from_address, to_address, amount, block_number)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (tx_hash) DO NOTHING`,
-      [event.log.transactionHash, from, to, amount, event.log.blockNumber],
-    );
-
-    console.log('Indexed Transfer event:', event.log.transactionHash);
+    // await startIndexer();
+    startIndexer();
   } catch (error) {
-    console.error('Transfer indexing error:', error);
+    console.error('Failed to start indexer:', error);
   }
 });
 
+// Graceful shutdown on Ctrl+C
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');
 

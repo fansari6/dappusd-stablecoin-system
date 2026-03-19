@@ -40,3 +40,8 @@ frontend/.vite/
 
 # Hardhat coverage reports
 /coverage
+
+# Other Files
+/Project Architecture.md
+/Project-Setup.md
+/ProjectDescriptionForResume.md
