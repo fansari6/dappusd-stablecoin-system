@@ -139,7 +139,6 @@ contract tests
 
 ### 1. Start Hardhat node
 
-```bash
 npx hardhat node
 
 2. Deploy contract
@@ -175,4 +174,3 @@ npm run dev
 
 Faruk Ansari
 Dapp Architects
-
