@@ -6,19 +6,30 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-Full-stack blockchain infrastructure project implementing an ERC-20 stablecoin, backend transaction indexing, and a monitoring dashboard.
+Full-stack blockchain infrastructure project implementing an ERC-20 stablecoin, backend transaction indexing, and a real-time monitoring dashboard.
 
-## Architecture
+---
 
-React Dashboard  
-↓  
-Node.js / Express API  
-↓  
-Ethereum Smart Contract (ERC-20)  
-↓  
+## 📊 Dashboard Preview
+
+![Dashboard](docs/dashboard.png)
+
+---
+
+## 🏗 Architecture
+
+React Dashboard (Vite)
+↓
+Node.js / Express API
+↓
+Ethereum Smart Contract (ERC-20)
+↓
 PostgreSQL Transaction Index
 
-## Features
+
+---
+
+## 🚀 Features
 
 ### Smart Contract
 - ERC-20 token (DappUSD)
@@ -31,8 +42,8 @@ PostgreSQL Transaction Index
 - Versioned REST API (`/api/v1`)
 - Blockchain integration using ethers.js
 - PostgreSQL transaction indexing
-- Event-driven blockchain indexer
-- Rate limiting
+- Polling + event-driven indexer
+- Rate limiting (express-rate-limit)
 - Security headers (Helmet)
 - Request logging (Morgan)
 - Global error handling
@@ -40,7 +51,8 @@ PostgreSQL Transaction Index
 - Graceful shutdown
 
 ### Database
-PostgreSQL table:
+
+PostgreSQL `transactions` table:
 
 | Column | Description |
 |------|-------------|
@@ -51,7 +63,10 @@ PostgreSQL table:
 | block_number | Ethereum block |
 | created_at | Timestamp |
 
+---
+
 ### Frontend Dashboard
+
 React + Vite dashboard showing:
 
 - API health
@@ -61,30 +76,33 @@ React + Vite dashboard showing:
 - Wallet balance lookup
 - Indexed transaction count
 - Transaction history table
+- Mint / Transfer / Burn UI (admin-controlled)
 
-## API Reference
+---
+
+## 📡 API Reference
 
 ### Health & Monitoring
-- `GET /api/v1/health` — API, database, and blockchain health
-- `GET /api/v1/total-supply` — current token supply
-- `GET /api/v1/transaction-count` — number of indexed transactions
+- `GET /api/v1/health`
+- `GET /api/v1/total-supply`
+- `GET /api/v1/transaction-count`
 
 ### Token Data
-- `GET /api/v1/token-info` — token name, symbol, and supply
-- `GET /api/v1/balance/:address` — wallet token balance
+- `GET /api/v1/token-info`
+- `GET /api/v1/balance/:address`
 
 ### Write Operations
-- `POST /api/v1/mint` — mint tokens
-- `POST /api/v1/transfer` — transfer tokens
-- `POST /api/v1/burn` — burn tokens
+- `POST /api/v1/mint`
+- `POST /api/v1/transfer`
+- `POST /api/v1/burn`
 
 ### Indexed Transactions
-- `GET /api/v1/transactions` — all indexed transactions
-- `GET /api/v1/transactions/:address` — transactions for a wallet
-  
-## API Endpoints
+- `GET /api/v1/transactions`
+- `GET /api/v1/transactions/:address`
 
-### System
+---
+
+## 📁 Project Structure
 
 contracts/
 DappUSD.sol
@@ -96,50 +114,65 @@ db.js
 indexer.js
 
 frontend/
-React dashboard
+React dashboard (Vite)
 
 scripts/
 deploy.js
+deploy-sepolia.js
 
 test/
 contract tests
 
+---
 
-## How It Works
+## ⚙️ How It Works
 
-1. Users interact with the React dashboard.
-2. The frontend calls the Express API.
-3. The API interacts with the Ethereum smart contract using ethers.js.
-4. Transfer events are automatically indexed into PostgreSQL.
-5. The dashboard displays indexed blockchain data.
+1. User interacts with React dashboard  
+2. Frontend calls Express API  
+3. API interacts with Ethereum via ethers.js  
+4. Transfer events are indexed into PostgreSQL  
+5. Dashboard displays indexed blockchain data  
 
-## Next Steps
+---
 
-Planned improvements:
+## ▶️ Run Locally
 
-- Deploy smart contract to Sepolia testnet
-- MetaMask wallet login
-- UI transaction sending
+### 1. Start Hardhat node
+
+```bash
+npx hardhat node
+
+2. Deploy contract
+npx hardhat run scripts/deploy.js --network localhost
+
+3. Start backend
+node api/server.js
+
+4. Start frontend
+cd frontend
+npm run dev
+
+📈 Current Status
+
+✅ Localhost MVP complete
+- Smart contract deployed
+- Backend API working
+- Indexer (polling + backfill)
+- PostgreSQL integration
+- Dashboard UI
+- Real-time updates
+- MetaMask integration
+- Mint / Transfer / Burn working
+
+🔮 Next Steps
+- Deploy to Sepolia testnet
+- Production deployment (Vercel + Render)
+- WebSocket-based real-time updates
+- User-signed MetaMask transactions
 - Docker containerization
-- Cloud deployment
-- Vercel frontend deployment
 
-## Author
+👤 Author
 
-Faruk Ansari  
+Faruk Ansari
 Dapp Architects
 
-## System Architecture
-
-```mermaid
-flowchart TD
-
-A[React Dashboard - Vite]
-B[Node.js / Express API]
-C[PostgreSQL Transaction Index]
-D[Ethereum ERC20 Contract - DappUSD]
-
-A -->|REST API| B
-B --> C
-B --> D
-```
